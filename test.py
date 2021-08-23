@@ -18,7 +18,7 @@ class Config:
         self.max_speed = 50.0  # [m/s]
         self.min_speed = 30.0  # [m/s]
         self.max_yaw_rate = 40.0 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 0.2  # [m/ss]
+        self.max_accel = 20.0  # [m/ss]
         self.max_delta_yaw_rate = 40.0 * math.pi / 180.0  # [rad/ss]
         self.v_resolution = 0.01  # [m/s]
         self.yaw_rate_resolution = 0.1 * math.pi / 180.0  # [rad/s]
@@ -173,11 +173,11 @@ class Map :
             lambda event: [exit(0) if event.key == 'escape' else None])
 
         # Plot Informations
-        plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
-        plt.plot(x[0], x[1], "xr")
-        plt.plot(goal[0], goal[1], "xb")
-        plt.plot(self.ob[:, 0], self.ob[:, 1], "ok")
-        plot_robot(x[0], x[1], x[2], config)
+        # plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
+        # plt.plot(x[0], x[1], "xr")
+        # plt.plot(goal[0], goal[1], "ok")
+        # plt.plot(self.ob[:, 0], self.ob[:, 1], "ok")
+        # plot_robot(x[0], x[1], x[2], config)
         plt.pause(3)
 
     # jesnk : get normal dist probabilities 
@@ -276,10 +276,11 @@ def main(gx=2.0, gy=1.5):
         
         # random
         noise = np.random.rand(2) * 20
-        noise = (int(noise[0]),int(noise[1]))
-        object_pos = noise + (10,10)
+        noise = (int(noise[0]), int(noise[1]))
+        object_pos = noise + (10, 10)
         map.update_map_increase_prob(object_pos)
-        print(map.get_highest_prob_point(3))
+        print(object_pos)
+        print(map.get_topk_prob_point(3))
 
         # jesnk added below
         if show_animation :
@@ -288,7 +289,6 @@ def main(gx=2.0, gy=1.5):
         # check reaching goal
         dist_to_goal = math.hypot(x[0] - goal[0], x[1] - goal[1])
         if dist_to_goal <= config.robot_radius:
-            print("Goal!!")
             break
 
     print("Done")
