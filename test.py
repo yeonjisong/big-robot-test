@@ -31,8 +31,9 @@ class Config:
         self.robot_width = 0.5
         self.robot_length = 1.2
         self.ob = np.array([[0, 2],
-                            [4.0, 2.0]
-                            ])
+                [4.0, 2.0]
+                ])
+        
 
 config = Config()
 
@@ -145,19 +146,68 @@ def plot_robot(x, y, yaw, config):  # pragma: no cover
     plt.plot([x, out_x], [y, out_y], "-k")
 
 
+class Map :
+    def __init__(self, shape, obstacle) :
+        self.ob = obstacle
+        self.nrows = shape[0]
+        self.ncols = shape[1]
+        self.data = np.zeros(self.nrows*self.ncols)
+        self.data = np.ma.array(self.data.reshape((self.nrows, self.ncols)), mask=self.data==0)
+
+        self.test_colorize()
+  
+    def test_colorize(self) :
+        self.data[3][2] = 50
+        self.data[3][3] = 90
+        self.data[3][4] = 50
+        self.data[4][3] = 50
+        self.data[2][3] = 50        
+  
+    def plot(self, predicted_trajectory,x,goal) :
+        self.fig, self.ax = plt.subplots()
+        self.ax.imshow(self.data, cmap="Greens", origin="lower", vmin=0)
+
+        # optionally add grid
+        self.ax.set_xticks(np.arange(self.ncols+1)-0.5, minor=True)
+        self.ax.set_yticks(np.arange(self.nrows+1)-0.5, minor=True)
+        self.ax.grid(which="minor")
+        self.ax.tick_params(which="minor", size=0)
+        plt.gcf().canvas.mpl_connect(
+            'key_release_event',
+            lambda event: [exit(0) if event.key == 'escape' else None])
+
+        # Plot Informations
+        plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
+        plt.plot(x[0], x[1], "xr")
+        plt.plot(goal[0], goal[1], "xb")
+        plt.plot(self.ob[:, 0], self.ob[:, 1], "ok")
+        plot_robot(x[0], x[1], x[2], config)
+        plt.pause(3)
+
+
+
 def main(gx=2.0, gy=1.5):
     print("start")
+
+    # jesnk added below
+    ob = config.ob
+    map = Map((10,10), obstacle=ob)
+
     x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0])
     goal = np.array([gx, gy])
-
     trajectory = np.array(x)
-    ob = config.ob
-
+    
     while True:
         u, predicted_trajectory = dwa_control(x, config, goal, ob)
         x = motion(x, u, config.dt)  # simulate robot
         trajectory = np.vstack((trajectory, x))  # store state history
 
+        # jesnk added below
+        if show_animation :
+            map.plot(predicted_trajectory,x,goal)
+
+        '''
+        # Prev show_animation
         if show_animation:
             plt.cla()
             # for stopping simulation with the esc key.
@@ -168,10 +218,16 @@ def main(gx=2.0, gy=1.5):
             plt.plot(x[0], x[1], "xr")
             plt.plot(goal[0], goal[1], "xb")
             plt.plot(ob[:, 0], ob[:, 1], "ok")
+            
             plot_robot(x[0], x[1], x[2], config)
+            
             plt.axis("equal")
-            plt.grid(True)
+            #plt.grid(True)
+            
             plt.pause(3)
+
+
+        '''
 
         # check reaching goal
         dist_to_goal = math.hypot(x[0] - goal[0], x[1] - goal[1])
