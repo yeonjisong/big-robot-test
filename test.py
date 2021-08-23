@@ -2,6 +2,7 @@ import math
 from enum import Enum
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import norm 
 
 show_animation = True
 
@@ -152,17 +153,9 @@ class Map :
         self.nrows = shape[0]
         self.ncols = shape[1]
         self.data = np.zeros(self.nrows*self.ncols)
-        self.data = np.ma.array(self.data.reshape((self.nrows, self.ncols)), mask=self.data==0)
+        self.data = np.array(self.data.reshape((self.nrows, self.ncols)))
+        self.prob_update_distance_range = 5
 
-        self.test_colorize()
-  
-    def test_colorize(self) :
-        self.data[3][2] = 50
-        self.data[3][3] = 90
-        self.data[3][4] = 50
-        self.data[4][3] = 50
-        self.data[2][3] = 50        
-  
     def plot(self, predicted_trajectory,x,goal) :
         self.fig, self.ax = plt.subplots()
         self.ax.imshow(self.data, cmap="Greens", origin="lower", vmin=0)
@@ -184,6 +177,68 @@ class Map :
         plot_robot(x[0], x[1], x[2], config)
         plt.pause(3)
 
+    # jesnk : get normal dist probabilities 
+    # from distance 0 to num_prob
+    def get_prob_array(self, num_prob) :
+        rv = norm(loc = 0, scale = 1)
+        ret = []
+        for i in range(num_prob) :
+            scale = 0.4
+            offset = (scale*i)
+            value = rv.pdf(0+offset)
+            ret.append(value)
+        return ret
+
+    # jesnk : get Positions of input-distance from object position
+    def get_distance_pos(self,object_pos, distance) :
+        ret = []
+        data = self.data
+        row = object_pos[0]
+        col = object_pos[1]
+        row_max = row + distance
+        row_min = row - distance
+        col_max = col + distance
+        col_min = col - distance
+
+        for i in range(col_min, col_max+1) :
+            pos = (row_min, i)
+            ret.append(pos)
+            pos = (row_max, i)
+            ret.append(pos)
+        for i in range(row_min, row_max+1) :
+            pos = (i, col_min)
+            ret.append(pos)
+            pos = (i, col_max)
+            ret.append(pos)
+        
+        for i in reversed(range(len(ret))) :
+            i = ret[i]
+            if i[1] > data.shape[1] : 
+                ret.remove(i)
+            elif i[0] > data.shape[0] :
+                ret.remove(i)
+            elif i[0] < 0 :
+                ret.remove(i)
+            elif i[1] < 0 :
+                ret.remove(i)
+        ret_set = set(ret)
+        ret = list(ret_set)
+        if object_pos in ret and distance != 0:
+            ret.remove(object_pos)
+        return ret
+
+    # jesnk : update probability    
+    def update_map_increase_prob(self, object_pos) :
+        prob_array = self.get_prob_array(self.prob_update_distance_range)
+        for distance in range(self.prob_update_distance_range) :
+            update_value = prob_array[distance]
+            target_pos_array = self.get_distance_pos(object_pos,distance)
+            for pos in target_pos_array :
+                row = pos[0]
+                col = pos[1]
+                self.data[row][col] += update_value
+
+
 
 
 def main(gx=2.0, gy=1.5):
@@ -191,7 +246,7 @@ def main(gx=2.0, gy=1.5):
 
     # jesnk added below
     ob = config.ob
-    map = Map((10,10), obstacle=ob)
+    map = Map((32,32), obstacle=ob)
 
     x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0])
     goal = np.array([gx, gy])
@@ -201,33 +256,11 @@ def main(gx=2.0, gy=1.5):
         u, predicted_trajectory = dwa_control(x, config, goal, ob)
         x = motion(x, u, config.dt)  # simulate robot
         trajectory = np.vstack((trajectory, x))  # store state history
+        map.update_map_increase_prob((10,10))
 
         # jesnk added below
         if show_animation :
             map.plot(predicted_trajectory,x,goal)
-
-        '''
-        # Prev show_animation
-        if show_animation:
-            plt.cla()
-            # for stopping simulation with the esc key.
-            plt.gcf().canvas.mpl_connect(
-                'key_release_event',
-                lambda event: [exit(0) if event.key == 'escape' else None])
-            plt.plot(predicted_trajectory[:, 0], predicted_trajectory[:, 1], "-g")
-            plt.plot(x[0], x[1], "xr")
-            plt.plot(goal[0], goal[1], "xb")
-            plt.plot(ob[:, 0], ob[:, 1], "ok")
-            
-            plot_robot(x[0], x[1], x[2], config)
-            
-            plt.axis("equal")
-            #plt.grid(True)
-            
-            plt.pause(3)
-
-
-        '''
 
         # check reaching goal
         dist_to_goal = math.hypot(x[0] - goal[0], x[1] - goal[1])
