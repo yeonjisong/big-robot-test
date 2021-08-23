@@ -3,6 +3,7 @@ from enum import Enum
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import norm 
+from sklearn.preprocessing import MinMaxScaler
 
 show_animation = True
 
@@ -155,6 +156,8 @@ class Map :
         self.data = np.zeros(self.nrows*self.ncols)
         self.data = np.array(self.data.reshape((self.nrows, self.ncols)))
         self.prob_update_distance_range = 5
+        self.scaler = MinMaxScaler()
+        
 
     def plot(self, predicted_trajectory,x,goal) :
         self.fig, self.ax = plt.subplots()
@@ -186,11 +189,11 @@ class Map :
             scale = 0.4
             offset = (scale*i)
             value = rv.pdf(0+offset)
-            ret.append(value)
+            ret.append(value*2)
         return ret
 
     # jesnk : get Positions of input-distance from object position
-    def get_distance_pos(self,object_pos, distance) :
+    def get_distance_pos(self, object_pos, distance) :
         ret = []
         data = self.data
         row = object_pos[0]
@@ -237,7 +240,21 @@ class Map :
                 row = pos[0]
                 col = pos[1]
                 self.data[row][col] += update_value
+        self.prob_scaling()
 
+
+    def prob_scaling(self) :
+        data = self.data.reshape(-1,1)
+        data = self.scaler.fit_transform(data)
+        print(self.data.max())
+        self.data = data.reshape(self.nrows,self.ncols)
+        print(self.data.max())
+
+
+    def get_topk_prob_point(self,num_point) :
+        point_array = self.data.reshape(-1,).argsort()[-num_point:][::-1] # Get highest (num_point) value's index
+        converted_point_array = [(i//self.nrows, i% self.nrows) for i in point_array ] # convert to x, y
+        return converted_point_array
 
 
 
@@ -256,7 +273,13 @@ def main(gx=2.0, gy=1.5):
         u, predicted_trajectory = dwa_control(x, config, goal, ob)
         x = motion(x, u, config.dt)  # simulate robot
         trajectory = np.vstack((trajectory, x))  # store state history
-        map.update_map_increase_prob((10,10))
+        
+        # random
+        noise = np.random.rand(2) * 20
+        noise = (int(noise[0]),int(noise[1]))
+        object_pos = noise + (10,10)
+        map.update_map_increase_prob(object_pos)
+        print(map.get_highest_prob_point(3))
 
         # jesnk added below
         if show_animation :
