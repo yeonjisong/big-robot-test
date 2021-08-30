@@ -2,7 +2,7 @@ import math
 from enum import Enum
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import norm 
+from scipy.stats import norm
 from sklearn.preprocessing import MinMaxScaler
 
 show_animation = True
@@ -33,9 +33,9 @@ class Config:
         self.robot_width = 0.5
         self.robot_length = 1.2
         self.ob = np.array([[0, 2],
-                [4.0, 2.0]
-                ])
-        
+                            [4.0, 2.0]
+                            ])
+
 
 config = Config()
 
@@ -148,24 +148,23 @@ def plot_robot(x, y, yaw, config):  # pragma: no cover
     plt.plot([x, out_x], [y, out_y], "-k")
 
 
-class Map :
-    def __init__(self, shape, obstacle) :
+class Map:
+    def __init__(self, shape, obstacle):
         self.ob = obstacle
         self.nrows = shape[0]
         self.ncols = shape[1]
-        self.data = np.zeros(self.nrows*self.ncols)
+        self.data = np.zeros(self.nrows * self.ncols)
         self.data = np.array(self.data.reshape((self.nrows, self.ncols)))
         self.prob_update_distance_range = 5
         self.scaler = MinMaxScaler()
-        
 
-    def plot(self, predicted_trajectory,x,goal) :
+    def plot(self, predicted_trajectory, x, goal):
         self.fig, self.ax = plt.subplots()
         self.ax.imshow(self.data, cmap="Greens", origin="lower", vmin=0)
 
         # optionally add grid
-        self.ax.set_xticks(np.arange(self.ncols+1)-0.5, minor=True)
-        self.ax.set_yticks(np.arange(self.nrows+1)-0.5, minor=True)
+        self.ax.set_xticks(np.arange(self.ncols + 1) - 0.5, minor=True)
+        self.ax.set_yticks(np.arange(self.nrows + 1) - 0.5, minor=True)
         self.ax.grid(which="minor")
         self.ax.tick_params(which="minor", size=0)
         plt.gcf().canvas.mpl_connect(
@@ -180,20 +179,20 @@ class Map :
         # plot_robot(x[0], x[1], x[2], config)
         plt.pause(3)
 
-    # jesnk : get normal dist probabilities 
+    # jesnk : get normal dist probabilities
     # from distance 0 to num_prob
-    def get_prob_array(self, num_prob) :
-        rv = norm(loc = 0, scale = 1)
+    def get_prob_array(self, num_prob):
+        rv = norm(loc=0, scale=1)
         ret = []
-        for i in range(num_prob) :
+        for i in range(num_prob):
             scale = 0.4
-            offset = (scale*i)
-            value = rv.pdf(0+offset)
-            ret.append(value*2)
+            offset = (scale * i)
+            value = rv.pdf(0 + offset)
+            ret.append(value * 2)
         return ret
 
     # jesnk : get Positions of input-distance from object position
-    def get_distance_pos(self, object_pos, distance) :
+    def get_distance_pos(self, object_pos, distance):
         ret = []
         data = self.data
         row = object_pos[0]
@@ -203,26 +202,26 @@ class Map :
         col_max = col + distance
         col_min = col - distance
 
-        for i in range(col_min, col_max+1) :
+        for i in range(col_min, col_max + 1):
             pos = (row_min, i)
             ret.append(pos)
             pos = (row_max, i)
             ret.append(pos)
-        for i in range(row_min, row_max+1) :
+        for i in range(row_min, row_max + 1):
             pos = (i, col_min)
             ret.append(pos)
             pos = (i, col_max)
             ret.append(pos)
-        
-        for i in reversed(range(len(ret))) :
+
+        for i in reversed(range(len(ret))):
             i = ret[i]
-            if i[1] > data.shape[1] : 
+            if i[1] > data.shape[1]:
                 ret.remove(i)
-            elif i[0] > data.shape[0] :
+            elif i[0] > data.shape[0]:
                 ret.remove(i)
-            elif i[0] < 0 :
+            elif i[0] < 0:
                 ret.remove(i)
-            elif i[1] < 0 :
+            elif i[1] < 0:
                 ret.remove(i)
         ret_set = set(ret)
         ret = list(ret_set)
@@ -230,32 +229,29 @@ class Map :
             ret.remove(object_pos)
         return ret
 
-    # jesnk : update probability    
-    def update_map_increase_prob(self, object_pos) :
+    # jesnk : update probability
+    def update_map_increase_prob(self, object_pos):
         prob_array = self.get_prob_array(self.prob_update_distance_range)
-        for distance in range(self.prob_update_distance_range) :
+        for distance in range(self.prob_update_distance_range):
             update_value = prob_array[distance]
-            target_pos_array = self.get_distance_pos(object_pos,distance)
-            for pos in target_pos_array :
+            target_pos_array = self.get_distance_pos(object_pos, distance)
+            for pos in target_pos_array:
                 row = pos[0]
                 col = pos[1]
                 self.data[row][col] += update_value
         self.prob_scaling()
 
-
-    def prob_scaling(self) :
-        data = self.data.reshape(-1,1)
+    def prob_scaling(self):
+        data = self.data.reshape(-1, 1)
         data = self.scaler.fit_transform(data)
         print(self.data.max())
-        self.data = data.reshape(self.nrows,self.ncols)
+        self.data = data.reshape(self.nrows, self.ncols)
         print(self.data.max())
 
-
-    def get_topk_prob_point(self,num_point) :
-        point_array = self.data.reshape(-1,).argsort()[-num_point:][::-1] # Get highest (num_point) value's index
-        converted_point_array = [(i//self.nrows, i% self.nrows) for i in point_array ] # convert to x, y
+    def get_topk_prob_point(self, num_point):
+        point_array = self.data.reshape(-1, ).argsort()[-num_point:][::-1]  # Get highest (num_point) value's index
+        converted_point_array = [(i // self.nrows, i % self.nrows) for i in point_array]  # convert to x, y
         return converted_point_array
-
 
 
 def main(gx=2.0, gy=1.5):
@@ -263,17 +259,17 @@ def main(gx=2.0, gy=1.5):
 
     # jesnk added below
     ob = config.ob
-    map = Map((32,32), obstacle=ob)
+    map = Map((32, 32), obstacle=ob)
 
     x = np.array([0.0, 0.0, math.pi / 8.0, 0.0, 0.0])
     goal = np.array([gx, gy])
     trajectory = np.array(x)
-    
+
     while True:
         u, predicted_trajectory = dwa_control(x, config, goal, ob)
         x = motion(x, u, config.dt)  # simulate robot
         trajectory = np.vstack((trajectory, x))  # store state history
-        
+
         # random
         noise = np.random.rand(2) * 20
         noise = (int(noise[0]), int(noise[1]))
@@ -283,8 +279,8 @@ def main(gx=2.0, gy=1.5):
         print(map.get_topk_prob_point(3))
 
         # jesnk added below
-        if show_animation :
-            map.plot(predicted_trajectory,x,goal)
+        if show_animation:
+            map.plot(predicted_trajectory, x, goal)
 
         # check reaching goal
         dist_to_goal = math.hypot(x[0] - goal[0], x[1] - goal[1])
